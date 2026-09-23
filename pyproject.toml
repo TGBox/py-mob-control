@@ -1,0 +1,17 @@
+[project]
+name = "py-mob-control"
+version = "0.1.0"
+description = "A python game adaptation of the mobile game mob control."
+readme = "README.md"
+authors = [
+    { name = "Daniel Rösch", email = "droesch91@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = []
+
+[project.scripts]
+py-mob-control = "py_mob_control:main"
+
+[build-system]
+requires = ["uv_build>=0.12.6,<0.13.0"]
+build-backend = "uv_build"
