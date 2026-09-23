@@ -46,9 +46,9 @@ class GameApp:
         # Defeat screen timer
         self.defeat_timer = 0.0
 
-    def start_battle(self) -> None:
-        """Initialize a new battle for current savegame level."""
-        current_lvl = self.save_mgr.data.get("current_level", 1)
+    def start_battle(self, level: Optional[int] = None) -> None:
+        """Initialize a new battle for current savegame level or selected level."""
+        current_lvl = level or (self.shop_scene.selected_level if self.shop_scene else None) or self.save_mgr.data.get("current_level", 1)
         cfg = get_level_config(current_lvl)
         self.battle_scene = BattleScene(
             level_config=cfg,
@@ -65,7 +65,7 @@ class GameApp:
             self.state = self.STATE_SHOP
             return
 
-        current_lvl = self.save_mgr.data.get("current_level", 1)
+        current_lvl = self.battle_scene.level_config.level_number
         survivors = [m for m in self.battle_scene.player_mobs if m.alive]
         self.loot_scene = LootScene(
             level_number=current_lvl,
@@ -155,13 +155,17 @@ class GameApp:
         cx = self.display_mgr.window_width // 2
         cy = self.display_mgr.window_height // 2
 
+        coins_msg = f"Recovered +{self.battle_scene.combat_coins_earned} Coins from combat!" if self.battle_scene else ""
+
         t1 = self.display_mgr.font_big.render("DEFEAT!", True, (255, 60, 60))
         t2 = self.display_mgr.font_header.render("Your defense line was overrun.", True, COLOR_TEXT_PRIMARY)
-        t3 = self.display_mgr.font_body.render("Click or press [SPACE] to return to HQ & upgrade.", True, COLOR_ACCENT_GOLD)
+        t_coins = self.display_mgr.font_header.render(coins_msg, True, COLOR_ACCENT_GOLD)
+        t3 = self.display_mgr.font_body.render("Click or press [SPACE] to return to HQ & upgrade.", True, COLOR_TEXT_PRIMARY)
 
-        self.display_mgr.screen.blit(t1, t1.get_rect(center=(cx, cy - 40)))
-        self.display_mgr.screen.blit(t2, t2.get_rect(center=(cx, cy + 10)))
-        self.display_mgr.screen.blit(t3, t3.get_rect(center=(cx, cy + 50)))
+        self.display_mgr.screen.blit(t1, t1.get_rect(center=(cx, cy - 50)))
+        self.display_mgr.screen.blit(t2, t2.get_rect(center=(cx, cy - 5)))
+        self.display_mgr.screen.blit(t_coins, t_coins.get_rect(center=(cx, cy + 28)))
+        self.display_mgr.screen.blit(t3, t3.get_rect(center=(cx, cy + 65)))
 
 
 def main() -> None:

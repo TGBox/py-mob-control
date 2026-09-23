@@ -60,3 +60,14 @@ def test_gate_subtract():
     gate.process_mob(mob2)
     assert not mob2.alive
     assert gate.remaining_penalty == 0
+
+
+def test_gate_ignores_enemy_mobs():
+    gate = MultiplierGate(x=100.0, y=100.0, width=80.0, height=40.0, operation=GateOperation.MULTIPLY, value=4)
+    enemy_mob = Mob(x=100.0, y=100.0, team=Team.ENEMY, speed=200.0)
+
+    clones = gate.process_mob(enemy_mob)
+    assert len(clones) == 0
+    assert gate.id not in enemy_mob.passed_gate_ids
+    assert enemy_mob.alive is True
+

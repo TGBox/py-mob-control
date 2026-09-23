@@ -49,8 +49,8 @@ class FlyingBrick:
         self.color = color
         self.arrived = False
 
-    def update(self, dt: float) -> bool:
-        self.progress += self.speed * dt
+    def update(self, dt: float, speed_multiplier: float = 1.0) -> bool:
+        self.progress += self.speed * dt * speed_multiplier
         if self.progress >= 1.0:
             self.progress = 1.0
             self.arrived = True
@@ -128,14 +128,14 @@ class ParticleSystem:
         """Launch an animated brick flying toward the currency bank."""
         self.flying_bricks.append(FlyingBrick(start_pos, target_pos))
 
-    def update(self, dt: float) -> int:
+    def update(self, dt: float, flying_speed_multiplier: float = 1.0) -> int:
         """Update all active particles. Returns count of bricks that arrived at the target this frame."""
         arrived_bricks = 0
 
         # Update flying bricks
         alive_bricks: List[FlyingBrick] = []
         for fb in self.flying_bricks:
-            if fb.update(dt):
+            if fb.update(dt, speed_multiplier=flying_speed_multiplier):
                 arrived_bricks += 1
             else:
                 alive_bricks.append(fb)

@@ -56,6 +56,11 @@ class SaveManager:
             else:
                 base[k] = v
 
+    def reset_progress(self) -> None:
+        """Reset save data back to initial default state."""
+        self.data = json.loads(json.dumps(self.DEFAULT_DATA))
+        self.save()
+
     def save(self) -> None:
         """Atomic write to disk."""
         tmp_path = self.filepath + ".tmp"

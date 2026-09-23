@@ -37,3 +37,11 @@ def test_save_manager_lifecycle(tmp_path):
     assert mgr2.data["bricks"] == 150
     assert mgr2.data["current_level"] == 2
     assert mgr2.data["highest_level_beaten"] == 1
+
+    # Reset progress
+    mgr2.reset_progress()
+    assert mgr2.data["coins"] == 250
+    assert mgr2.data["bricks"] == 100
+    assert mgr2.data["current_level"] == 1
+    assert mgr2.data["highest_level_beaten"] == 0
+

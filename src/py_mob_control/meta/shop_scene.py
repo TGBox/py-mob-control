@@ -65,10 +65,18 @@ class ShopScene:
         self.audio_mgr = audio_mgr
 
         self.buttons: Dict[str, Button] = {}
+        self.selected_level: int = self.save_mgr.data.get("current_level", 1)
+        self.confirm_reset_timer: float = 0.0
+
+    def get_max_unlocked_level(self) -> int:
+        return max(self.save_mgr.data.get("current_level", 1), self.save_mgr.data.get("highest_level_beaten", 0) + 1)
 
     def update(self, dt: float, input_mgr: InputManager) -> Optional[str]:
         """Process clicks and keyboard shortcuts. Returns 'BATTLE' when player launches level."""
         self.audio_mgr.update(dt)
+
+        if self.confirm_reset_timer > 0.0:
+            self.confirm_reset_timer = max(0.0, self.confirm_reset_timer - dt)
 
         mouse_pos = input_mgr.mouse_screen_pos
 
@@ -82,6 +90,17 @@ class ShopScene:
             if "play" in self.buttons and self.buttons["play"].rect.collidepoint(mouse_pos):
                 self.audio_mgr.play("mob_pop")
                 return "BATTLE"
+
+            # Check Level Selector
+            if "prev_level" in self.buttons and self.buttons["prev_level"].rect.collidepoint(mouse_pos):
+                if self.selected_level > 1:
+                    self.selected_level -= 1
+                    self.audio_mgr.play("mob_pop")
+
+            if "next_level" in self.buttons and self.buttons["next_level"].rect.collidepoint(mouse_pos):
+                if self.selected_level < self.get_max_unlocked_level():
+                    self.selected_level += 1
+                    self.audio_mgr.play("mob_pop")
 
             # Check Combat upgrades
             if "fire_rate" in self.buttons and self.buttons["fire_rate"].rect.collidepoint(mouse_pos):
@@ -105,10 +124,30 @@ class ShopScene:
                 if self.upgrade_sys.upgrade_brick_factory():
                     self.audio_mgr.play("brick_chip")
 
+            # Check Reset button
+            if "reset_progress" in self.buttons and self.buttons["reset_progress"].rect.collidepoint(mouse_pos):
+                if self.confirm_reset_timer <= 0.0:
+                    self.confirm_reset_timer = 3.5
+                    self.audio_mgr.play("mob_clash")
+                else:
+                    self.confirm_reset_timer = 0.0
+                    self.save_mgr.reset_progress()
+                    self.selected_level = 1
+                    self.audio_mgr.play("win")
+
         # Keyboard shortcuts
         if input_mgr.is_key_just_pressed([pygame.K_SPACE, pygame.K_RETURN]):
             self.audio_mgr.play("mob_pop")
             return "BATTLE"
+
+        if input_mgr.is_key_just_pressed([pygame.K_LEFT]):
+            if self.selected_level > 1:
+                self.selected_level -= 1
+                self.audio_mgr.play("mob_pop")
+        elif input_mgr.is_key_just_pressed([pygame.K_RIGHT]):
+            if self.selected_level < self.get_max_unlocked_level():
+                self.selected_level += 1
+                self.audio_mgr.play("mob_pop")
 
         if input_mgr.is_key_just_pressed([pygame.K_1]):
             if self.upgrade_sys.upgrade_fire_rate():
@@ -278,7 +317,10 @@ class ShopScene:
         pygame.draw.rect(screen, COLOR_BG_SIDEBAR, bottom_bar, border_radius=8)
         pygame.draw.rect(screen, COLOR_BORDER, bottom_bar, 1, border_radius=8)
 
-        current_level = self.save_mgr.data.get("current_level", 1)
+        max_lvl = self.get_max_unlocked_level()
+        # Keep selected level in bounds
+        self.selected_level = max(1, min(max_lvl, self.selected_level))
+
         play_btn_w = 340
         play_btn_h = 56
         play_rect = pygame.Rect(
@@ -288,15 +330,47 @@ class ShopScene:
             play_btn_h,
         )
 
+        # Prev (<) and Next (>) buttons
+        arrow_w = 50
+        prev_rect = pygame.Rect(play_rect.left - arrow_w - 12, play_rect.top, arrow_w, play_btn_h)
+        next_rect = pygame.Rect(play_rect.right + 12, play_rect.top, arrow_w, play_btn_h)
+
+        if "prev_level" not in self.buttons or self.buttons["prev_level"].rect != prev_rect:
+            self.buttons["prev_level"] = Button(prev_rect, "<", COLOR_ACCENT_CYAN)
+        if "next_level" not in self.buttons or self.buttons["next_level"].rect != next_rect:
+            self.buttons["next_level"] = Button(next_rect, ">", COLOR_ACCENT_CYAN)
+
+        self.buttons["prev_level"].draw(screen, self.display_mgr.font_header, enabled=(self.selected_level > 1))
+        self.buttons["next_level"].draw(screen, self.display_mgr.font_header, enabled=(self.selected_level < max_lvl))
+
         if "play" not in self.buttons or self.buttons["play"].rect != play_rect:
-            self.buttons["play"] = Button(play_rect, f"DEPLOY TO LEVEL {current_level} [ENTER]", COLOR_ACCENT_GOLD)
+            self.buttons["play"] = Button(play_rect, f"DEPLOY TO LEVEL {self.selected_level} [ENTER]", COLOR_ACCENT_GOLD)
         else:
-            self.buttons["play"].text = f"DEPLOY TO LEVEL {current_level} [ENTER]"
+            self.buttons["play"].text = f"DEPLOY TO LEVEL {self.selected_level} [ENTER]"
 
         self.buttons["play"].draw(screen, self.display_mgr.font_header, enabled=True)
 
+        # Reset Progress button on the right
+        reset_w = 175
+        reset_h = 42
+        reset_rect = pygame.Rect(bottom_bar.right - reset_w - 20, bottom_bar.centery - (reset_h // 2), reset_w, reset_h)
+        if self.confirm_reset_timer > 0.0:
+            reset_text = f"SURE? CLICK! ({int(self.confirm_reset_timer + 0.9)}s)"
+            reset_color = (235, 45, 60)
+        else:
+            reset_text = "RESET PROGRESS"
+            reset_color = (110, 35, 45)
+
+        if "reset_progress" not in self.buttons or self.buttons["reset_progress"].rect != reset_rect:
+            self.buttons["reset_progress"] = Button(reset_rect, reset_text, reset_color)
+        else:
+            self.buttons["reset_progress"].text = reset_text
+            self.buttons["reset_progress"].color = reset_color
+
+        self.buttons["reset_progress"].draw(screen, self.display_mgr.font_body, enabled=True)
+
         # Cheatsheet text in bottom bar
-        hint_text = self.display_mgr.font_mono.render("Press [1-5] to Quick-Upgrade | [ENTER] to Deploy | [F11] Fullscreen", True, COLOR_TEXT_MUTED)
+        hint_text = self.display_mgr.font_mono.render("Press [1-5] to Quick-Upgrade | [<-/->] Select Level | [ENTER] to Deploy | [F11] Fullscreen", True, COLOR_TEXT_MUTED)
         screen.blit(hint_text, (bottom_bar.left + 20, bottom_bar.centery - 8))
 
     def _draw_upgrade_card(

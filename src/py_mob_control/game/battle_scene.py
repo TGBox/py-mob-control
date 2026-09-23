@@ -97,6 +97,7 @@ class BattleScene:
         self.gate_combo_counter = 0
         self.combo_timer = 0.0
         self.bricks_destroyed = 0
+        self.combat_coins_earned = 0
 
         self.player_health = 100
         self.max_player_health = 100
@@ -203,11 +204,6 @@ class BattleScene:
 
         for mob in self.enemy_mobs:
             mob.update(dt)
-            # Enemies also interact with gates in opposing direction!
-            for gate in self.gates:
-                clones = gate.process_mob(mob)
-                if clones:
-                    self.enemy_mobs.extend(clones)
 
         # 5. Spatial Grid & Mob-to-Mob Collisions
         all_active_mobs = [m for m in self.player_mobs if m.alive] + [m for m in self.enemy_mobs if m.alive]
@@ -241,6 +237,7 @@ class BattleScene:
 
                     if killed:
                         self.enemies_killed += 1
+                        self.combat_coins_earned += 1
                         self.player_cannon.add_ultimate_charge(0.02)
 
                     if pm.is_champion:
@@ -261,6 +258,8 @@ class BattleScene:
                     self.screen_shake.add_trauma(0.12)
                     if base_destroyed:
                         self.is_victory = True
+                        if self.combat_coins_earned > 0:
+                            self.save_mgr.add_coins(self.combat_coins_earned)
                         self.audio_mgr.play("win")
                         self.screen_shake.add_trauma(0.6)
                         self.particles.emit_confetti(VIRTUAL_WIDTH / 2.0, 150.0, count=60)
@@ -278,6 +277,8 @@ class BattleScene:
                 self.screen_shake.add_trauma(0.2)
                 if self.player_health <= 0 and not self.is_defeat and not self.is_victory:
                     self.is_defeat = True
+                    if self.combat_coins_earned > 0:
+                        self.save_mgr.add_coins(self.combat_coins_earned)
                     self.audio_mgr.play("lose")
                     self.floating_texts.spawn("DEFEAT!", VIRTUAL_WIDTH / 2.0, VIRTUAL_HEIGHT / 2.0, color=COLOR_ENEMY_PRIMARY, large=True)
 

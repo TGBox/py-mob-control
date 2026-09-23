@@ -57,16 +57,22 @@ def test_full_gameplay_headless_cycle(tmp_path):
     assert app.state == app.STATE_LOOT
     assert app.loot_scene is not None
 
-    # Run loot frames
-    for _ in range(30):
-        dt = 0.016
+    # Run loot frames with mouse held down (fast-forward test)
+    for _ in range(35):
+        dt = 0.03
         app.input_mgr.begin_frame()
+        app.input_mgr.mouse_left_down = True
         app.loot_scene.update(dt, app.input_mgr)
         app.loot_scene.draw()
 
+    # Bricks should be rapidly harvested
+    assert app.loot_scene.is_speeding_up is True
+    assert app.loot_scene.bricks_looted > 0
+
     # Finish looting and return to shop
     app.loot_scene.looting_finished = True
-    app.loot_scene.phase_time = 3.0
+    app.loot_scene.phase_time = 2.0
+    app.input_mgr.mouse_left_down = False
     app.input_mgr.mouse_clicked_this_frame = True
     action = app.loot_scene.update(0.1, app.input_mgr)
     assert action == "SHOP"

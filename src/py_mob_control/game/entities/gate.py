@@ -48,9 +48,11 @@ class MultiplierGate:
         motion_speed: float = 70.0,
         min_x: float = 50.0,
         max_x: float = VIRTUAL_WIDTH - 50.0,
+        target_team: Optional[Team] = Team.PLAYER,
     ) -> None:
         self.id = MultiplierGate._next_id
         MultiplierGate._next_id += 1
+        self.target_team = target_team
 
         self.x = x
         self.y = y
@@ -115,6 +117,9 @@ class MultiplierGate:
 
         Returns list of newly spawned cloned mobs.
         """
+        if self.target_team is not None and mob.team != self.target_team:
+            return []
+
         if not mob.alive or self.id in mob.passed_gate_ids:
             return []
 

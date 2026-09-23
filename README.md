@@ -40,7 +40,11 @@ Eine moderne, performante Desktop-Adaption des beliebten Mobile-Hits **Mob Contr
 | **Audio stumm/aktiv** | — | `M` |
 | **Pause / Zurück zum HQ** | — | `ESC` |
 | **Deploy / Start** | Klick auf "Deploy" | `Enter` / `Leertaste` |
+| **Level auswählen** | `<` und `>` Buttons | `Pfeil Links` / `Pfeil Rechts` |
 | **Schnell-Upgrades (HQ)** | Klick auf Buttons | Tasten `1` bis `5` |
+| **Looting Beschleunigen** | Linke Maustaste gedrückt halten | `Leertaste` halten |
+| **Fortschritt zurücksetzen** | Button "RESET PROGRESS" (2-Klick) | — |
+
 
 ---
 

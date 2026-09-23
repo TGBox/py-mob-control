@@ -78,6 +78,9 @@ class DisplayManager:
         self.window_width = max(800, width)
         self.window_height = max(600, height)
         self.screen = pygame.display.set_mode((self.window_width, self.window_height), self.flags)
+        actual_w, actual_h = self.screen.get_size()
+        self.window_width = actual_w
+        self.window_height = actual_h
         self.recalculate_layout(self.window_width, self.window_height)
 
     def recalculate_layout(self, w: int, h: int) -> None:

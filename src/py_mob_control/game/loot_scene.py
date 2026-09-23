@@ -85,6 +85,7 @@ class LootScene:
 
         # Periodic brick spawn interval
         self.chip_timer = 0.0
+        self.is_speeding_up = False
 
         # Confetti burst
         self.particles.emit_confetti(VIRTUAL_WIDTH / 2.0, 160.0, count=50)
@@ -103,22 +104,40 @@ class LootScene:
                 # Milling around the rubble hammering bricks
                 mob.x += math.sin(self.phase_time * 6.0 + mob.id) * 35.0 * dt
 
+        # Check if user holds mouse left button or space to accelerate animation
+        self.is_speeding_up = input_mgr.mouse_left_down or input_mgr.is_key_held([pygame.K_SPACE, pygame.K_RETURN])
+
         # 2. Spawn flying bricks continuously until quota reached
-        if self.bricks_looted < self.final_bricks:
-            self.chip_timer += dt
-            if self.chip_timer >= 0.06:
-                self.chip_timer = 0.0
-                self.bricks_looted += 1
-
-                # Spawn brick from a random mob near the rubble
-                source_mob = random.choice(self.mobs)
-                start_virt = (source_mob.x, max(self.base_rubble_y, source_mob.y))
-                start_screen = self.display_mgr.virtual_to_screen(start_virt)
-
-                self.particles.spawn_flying_brick(start_screen, self.target_screen_pos)
-                self.particles.emit_brick_fragments(start_virt[0], start_virt[1], count=3)
-                self.audio_mgr.play("brick_chip")
-                self.screen_shake.add_trauma(0.04)
+        remaining = self.final_bricks - self.bricks_looted
+        if remaining > 0:
+            if self.is_speeding_up:
+                # Fast forward: all remaining bricks spawn in under 0.4s
+                spawn_rate = max(25.0, remaining / 0.4)
+                self.chip_timer += dt * spawn_rate
+                spawns_to_do = int(self.chip_timer)
+                if spawns_to_do > 0:
+                    self.chip_timer -= spawns_to_do
+                    spawns_to_do = min(spawns_to_do, remaining)
+                    for _ in range(spawns_to_do):
+                        self.bricks_looted += 1
+                        source_mob = random.choice(self.mobs)
+                        start_virt = (source_mob.x, max(self.base_rubble_y, source_mob.y))
+                        start_screen = self.display_mgr.virtual_to_screen(start_virt)
+                        self.particles.spawn_flying_brick(start_screen, self.target_screen_pos)
+                    self.particles.emit_brick_fragments(start_virt[0], start_virt[1], count=2)
+                    self.audio_mgr.play("brick_chip")
+            else:
+                self.chip_timer += dt
+                if self.chip_timer >= 0.06:
+                    self.chip_timer = 0.0
+                    self.bricks_looted += 1
+                    source_mob = random.choice(self.mobs)
+                    start_virt = (source_mob.x, max(self.base_rubble_y, source_mob.y))
+                    start_screen = self.display_mgr.virtual_to_screen(start_virt)
+                    self.particles.spawn_flying_brick(start_screen, self.target_screen_pos)
+                    self.particles.emit_brick_fragments(start_virt[0], start_virt[1], count=3)
+                    self.audio_mgr.play("brick_chip")
+                    self.screen_shake.add_trauma(0.04)
 
         elif not self.looting_finished:
             self.looting_finished = True
@@ -126,8 +145,9 @@ class LootScene:
             self.particles.emit_confetti(VIRTUAL_WIDTH / 2.0, 160.0, count=40)
             self.audio_mgr.play("win")
 
-        # 3. Particle update & arrived bricks
-        arrived = self.particles.update(dt)
+        # 3. Particle update & arrived bricks (4.5x faster when speeding up)
+        flying_mult = 4.5 if self.is_speeding_up else 1.0
+        arrived = self.particles.update(dt, flying_speed_multiplier=flying_mult)
         if arrived > 0:
             self.audio_mgr.play("coin")
 
@@ -138,8 +158,9 @@ class LootScene:
             self.save_mgr.add_coins(self.final_coins)
             self.save_mgr.advance_level(self.level_number)
 
-        # Continue button
-        if self.looting_finished and self.phase_time >= 2.0:
+        # Continue button (if speeding up, allow continuing after only 0.8s)
+        min_phase_time = 0.8 if self.is_speeding_up else 1.8
+        if self.looting_finished and self.phase_time >= min_phase_time:
             if input_mgr.mouse_clicked_this_frame or input_mgr.is_key_just_pressed([pygame.K_SPACE, pygame.K_RETURN]):
                 return "SHOP"
 
@@ -227,10 +248,15 @@ class LootScene:
             screen.blit(c_val, (c_card.left + 12, c_card.top + 30))
             y_cursor += 95
 
-            # Continue button
-            if self.looting_finished:
+            # Continue button or fast-forward hint
+            if not self.looting_finished:
+                hint_str = ">> FAST-FORWARDING..." if self.is_speeding_up else "HOLD [CLICK] TO SPEED UP (1s)"
+                hint_col = COLOR_ACCENT_GOLD if self.is_speeding_up else COLOR_TEXT_MUTED
+                h_surf = self.display_mgr.font_mono.render(hint_str, True, hint_col)
+                screen.blit(h_surf, (rp.left + 20, y_cursor))
+            elif self.looting_finished:
                 btn_rect = pygame.Rect(rp.left + 20, y_cursor, card_w, 48)
                 pygame.draw.rect(screen, COLOR_ACCENT_CYAN, btn_rect, border_radius=6)
-                btn_text = self.display_mgr.font_header.render("CONTINUE TO HQ", True, (10, 15, 25))
+                btn_text = self.display_mgr.font_header.render("CONTINUE TO HQ [SPACE]", True, (10, 15, 25))
                 btn_pos = btn_text.get_rect(center=btn_rect.center)
                 screen.blit(btn_text, btn_pos)
