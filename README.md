@@ -45,7 +45,6 @@ Eine moderne, performante Desktop-Adaption des beliebten Mobile-Hits **Mob Contr
 | **Looting Beschleunigen** | Linke Maustaste gedrückt halten | `Leertaste` halten |
 | **Fortschritt zurücksetzen** | Button "RESET PROGRESS" (2-Klick) | — |
 
-
 ---
 
 ## 🚀 Installation & Start
