@@ -1,2 +1,5 @@
-def main() -> None:
-    print("Hello from py-mob-control!")
+"""Py-Mob-Control package."""
+
+from .main import main
+
+__all__ = ["main"]
