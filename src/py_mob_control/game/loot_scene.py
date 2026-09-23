@@ -50,10 +50,10 @@ class LootScene:
         self.particles = ParticleSystem()
         self.screen_shake = ScreenShake()
 
-        # Ensure we have at least 15-25 enthusiastic looting mobs even if only few survived
-        min_looters = max(len(surviving_mobs), 20)
+        # Ensure a healthy visual celebration crowd (20 to 40 mobs)
+        num_looters = min(max(len(surviving_mobs), 20), 40)
         self.mobs: List[Mob] = []
-        for i in range(min_looters):
+        for i in range(num_looters):
             orig = surviving_mobs[i] if i < len(surviving_mobs) else None
             x = orig.x if orig else random.uniform(80.0, VIRTUAL_WIDTH - 80.0)
             y = orig.y if orig else random.uniform(400.0, 750.0)

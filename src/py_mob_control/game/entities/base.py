@@ -99,7 +99,8 @@ class EnemyBase:
         base_bottom = self.y + (self.height / 2.0)
         if mob.y <= base_bottom + mob.radius:
             mob.alive = False
-            damage = 10 if mob.is_champion else 1
+            cnt = getattr(mob, "count", 1)
+            damage = (10 * cnt) if mob.is_champion else cnt
             return self.take_damage(damage)
 
         return 0, False

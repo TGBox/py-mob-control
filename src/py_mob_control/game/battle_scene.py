@@ -35,7 +35,7 @@ from py_mob_control.meta.upgrade_system import UpgradeSystem
 from py_mob_control.levels.level_data import LevelConfig
 from .entities.mob import Mob, Team
 from .entities.cannon import Cannon
-from .entities.gate import MultiplierGate
+from .entities.gate import MultiplierGate, GateOperation
 from .entities.base import EnemyBase
 
 
@@ -187,18 +187,38 @@ class BattleScene:
             gate.update(dt)
 
         # 4. Update Mobs & Gate Interactions
+        MAX_ACTIVE_RENDER_MOBS = 400
         new_player_clones: List[Mob] = []
+        current_entity_count = len(self.player_mobs)
+
         for mob in self.player_mobs:
             mob.update(dt)
             for gate in self.gates:
-                clones = gate.process_mob(mob)
-                if clones:
-                    new_player_clones.extend(clones)
-                    self.gate_combo_counter += 1
-                    self.combo_timer = 1.2
-                    self.audio_mgr.play_gate_chime(self.gate_combo_counter)
-                    self.particles.emit_sparks(gate.x, gate.y, count=8)
-                    self.floating_texts.spawn(gate.get_label(), mob.x, mob.y - 15, color=COLOR_ACCENT_CYAN)
+                if current_entity_count + len(new_player_clones) < MAX_ACTIVE_RENDER_MOBS:
+                    clones = gate.process_mob(mob)
+                    if clones:
+                        new_player_clones.extend(clones)
+                        self.gate_combo_counter += 1
+                        self.combo_timer = 1.2
+                        self.audio_mgr.play_gate_chime(self.gate_combo_counter)
+                        self.particles.emit_sparks(gate.x, gate.y, count=6)
+                else:
+                    # Density compression: boost count of existing mob directly instead of allocating hundreds of objects
+                    if not mob.alive or gate.id in mob.passed_gate_ids:
+                        continue
+                    if gate.rect.collidepoint(int(mob.x), int(mob.y)):
+                        mob.passed_gate_ids.add(gate.id)
+                        gate.pulse = 1.0
+                        if gate.operation == GateOperation.MULTIPLY:
+                            mob.count = min(50000, mob.count * gate.value)
+                        elif gate.operation == GateOperation.ADD:
+                            mob.count = min(50000, mob.count + gate.value)
+                        elif gate.operation == GateOperation.SPEED:
+                            mob.speed *= 1.45
+                        self.gate_combo_counter += 1
+                        self.combo_timer = 1.2
+                        self.audio_mgr.play_gate_chime(self.gate_combo_counter)
+                        self.particles.emit_sparks(gate.x, gate.y, count=4)
 
         self.player_mobs.extend(new_player_clones)
 
@@ -210,19 +230,17 @@ class BattleScene:
         self.spatial_grid.populate(all_active_mobs)
         self.spatial_grid.solve_separation(all_active_mobs, dt)
 
-        # Clash resolution
-        for pm in self.player_mobs:
-            if not pm.alive:
+        # Clash resolution: Invert query to iterate over enemy mobs (minority team, O(E) queries instead of O(P))
+        for em in self.enemy_mobs:
+            if not em.alive:
                 continue
-            neighbors = self.spatial_grid.query_radius(pm.x, pm.y, pm.radius + 10.0)
-            for em in neighbors:
-                if not em.alive or em.team != Team.ENEMY:
+            neighbors = self.spatial_grid.query_radius(em.x, em.y, em.radius + 15.0)
+            for pm in neighbors:
+                if not pm.alive or pm.team != Team.PLAYER:
                     continue
-                # Collision detected
                 dist_sq = (pm.x - em.x) ** 2 + (pm.y - em.y) ** 2
                 combined_r = pm.radius + em.radius
                 if dist_sq <= combined_r * combined_r:
-                    # Combat interaction
                     p_dmg = 5 if pm.is_champion else 1
                     e_dmg = 5 if em.is_champion else 1
 
@@ -232,8 +250,8 @@ class BattleScene:
                     self.audio_mgr.play("mob_clash")
                     mid_x = (pm.x + em.x) / 2.0
                     mid_y = (pm.y + em.y) / 2.0
-                    self.particles.emit_mob_pop(mid_x, mid_y, COLOR_PLAYER_PRIMARY, count=4)
-                    self.particles.emit_mob_pop(mid_x, mid_y, COLOR_ENEMY_PRIMARY, count=4)
+                    self.particles.emit_mob_pop(mid_x, mid_y, COLOR_PLAYER_PRIMARY, count=3)
+                    self.particles.emit_mob_pop(mid_x, mid_y, COLOR_ENEMY_PRIMARY, count=3)
 
                     if killed:
                         self.enemies_killed += 1
@@ -244,12 +262,13 @@ class BattleScene:
                         self.audio_mgr.play("champion_stomp")
                         self.screen_shake.add_trauma(0.18)
 
-                    if not pm.alive:
+                    if not em.alive:
                         break
 
-        # 6. Base Attack & Damage
+        # 6. Base Attack & Damage (Filtered by Y threshold to avoid iterating whole army)
+        base_threshold = self.enemy_base.y + (self.enemy_base.height / 2.0) + 30.0
         for pm in self.player_mobs:
-            if pm.alive:
+            if pm.alive and pm.y <= base_threshold:
                 bricks_hit, base_destroyed = self.enemy_base.check_mob_attack(pm)
                 if bricks_hit > 0:
                     self.bricks_destroyed += bricks_hit
@@ -360,7 +379,8 @@ class BattleScene:
             pygame.draw.rect(screen, COLOR_BG_SIDEBAR_CARD, card_blue, border_radius=6)
             pygame.draw.rect(screen, COLOR_PLAYER_PRIMARY, card_blue, 1, border_radius=6)
             c_text = self.display_mgr.font_body.render("Allied Mobs Active:", True, COLOR_TEXT_MUTED)
-            c_val = self.display_mgr.font_header.render(str(len(self.player_mobs)), True, COLOR_PLAYER_PRIMARY)
+            total_allied_count = sum(m.count for m in self.player_mobs)
+            c_val = self.display_mgr.font_header.render(str(total_allied_count), True, COLOR_PLAYER_PRIMARY)
             screen.blit(c_text, (card_blue.left + 10, card_blue.top + 5))
             screen.blit(c_val, (card_blue.left + 10, card_blue.top + 22))
             y_cursor += 56

@@ -55,12 +55,13 @@ class SpatialGrid:
                         results.append(e)
         return results
 
-    def solve_separation(self, mobs: List[Any], dt: float, push_strength: float = 180.0) -> None:
-        """Apply soft repulsion force between nearby mobs so they flow like a liquid crowd."""
+    def solve_separation(self, mobs: List[Any], dt: float, push_strength: float = 160.0) -> None:
+        """Apply soft horizontal repulsion force so mobs spread out like a crowd."""
         for mob in mobs:
             if not getattr(mob, "alive", True):
                 continue
             cx, cy = self._hash(mob.x, mob.y)
+            checks = 0
             # Check 3x3 surrounding cells
             for ox in (-1, 0, 1):
                 for oy in (-1, 0, 1):
@@ -68,7 +69,8 @@ class SpatialGrid:
                     neighbors = self.cells.get(cell)
                     if not neighbors:
                         continue
-                    for other in neighbors:
+                    # Take sample of at most 5 per cell to avoid O(K^2) in dense clusters
+                    for other in neighbors[:5]:
                         if other is mob or not getattr(other, "alive", True):
                             continue
                         dx = mob.x - other.x
@@ -78,14 +80,16 @@ class SpatialGrid:
                         if 0.001 < dist_sq < min_dist * min_dist:
                             dist = math.sqrt(dist_sq)
                             overlap = (min_dist - dist) / min_dist
-                            # Normalized repulsion
                             nx = dx / dist
-                            ny = dy / dist
                             force = overlap * push_strength * dt
-                            # Champion has higher inertia
                             mob_mass = 4.0 if getattr(mob, "is_champion", False) else 1.0
                             other_mass = 4.0 if getattr(other, "is_champion", False) else 1.0
                             ratio = other_mass / (mob_mass + other_mass)
 
+                            # Push horizontally to spread across the track without pushing backwards
                             mob.x += nx * force * ratio
-                            mob.y += ny * force * ratio * 0.4  # dampen Y push so forward stream continues
+                            checks += 1
+                            if checks >= 4:
+                                break
+                    if checks >= 4:
+                        break
