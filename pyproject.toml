@@ -14,6 +14,7 @@ dependencies = [
 
 [project.scripts]
 py-mob-control = "py_mob_control:main"
+main = "py_mob_control:main"
 
 [build-system]
 requires = ["uv_build>=0.12.6,<0.13.0"]
